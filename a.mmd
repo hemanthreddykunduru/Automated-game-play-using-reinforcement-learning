@@ -1,0 +1,95 @@
+sequenceDiagram
+    participant U as User
+    participant M as Main
+    participant A as Agent
+    participant G as SnakeGameRL
+    participant DQN as DQN Model
+    participant P as Pygame
+    participant S as Storage
+
+    U->>M: Choose play mode (2)
+    M->>A: Initialize Agent()
+    
+    A->>S: load_model()
+    S-->>A: model weights loaded
+    A->>A: set epsilon = 0 (no exploration)
+    A->>DQN: eval() mode
+    
+    M->>G: Initialize SnakeGameRL()
+    G->>G: reset()
+    
+    alt With Visualization
+        M->>P: pygame.init()
+        P->>P: create screen
+        P->>P: set caption
+    end
+    
+    Note over M,P: Gameplay Loop
+    
+    loop Until user stops or window closes
+        alt With Visualization
+            P->>P: handle events
+            alt Quit Event
+                P->>M: quit signal
+                M->>U: exit
+            end
+        end
+        
+        G->>G: get_state()
+        G-->>A: current_state (11 features)
+        
+        A->>DQN: forward(state)
+        Note right of DQN: No exploration,<br/>pure exploitation
+        DQN-->>A: Q-values [3 actions]
+        A->>A: argmax(Q-values)
+        A-->>G: optimal_action
+        
+        G->>G: step(action)
+        G->>G: _move(action)
+        
+        alt Check Collision
+            G->>G: is_collision()
+            alt Collision Detected
+                G->>G: game_over = True
+                G-->>A: reward=-10, done=True, score
+            else No Collision
+                alt Food Eaten
+                    G->>G: length += 1
+                    G->>G: spawn_food()
+                    G-->>A: reward=+10, done=False, score
+                else Normal Move
+                    G->>G: calculate distance reward
+                    G-->>A: reward, done=False, score
+                end
+            end
+        end
+        
+        alt With Visualization
+            P->>P: clear screen
+            
+            loop For each snake segment
+                P->>P: draw rectangle (green)
+            end
+            
+            P->>P: draw food (red)
+            P->>P: render statistics text
+            P->>P: display.flip()
+            P->>P: clock.tick(FPS)
+        end
+        
+        alt Game Over
+            M->>M: update statistics
+            alt With Visualization
+                M-->>U: display game stats
+            else Without Visualization
+                M-->>U: print game stats
+            end
+            G->>G: reset()
+        end
+    end
+    
+    Note over U,S: Cleanup
+    alt With Visualization
+        P->>P: pygame.quit()
+    end
+    M-->>U: final statistics
